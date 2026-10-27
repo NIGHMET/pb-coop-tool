@@ -53,3 +53,24 @@ test('an answering peer recovers with only one side installed and no remote retr
   expect(await page.evaluate(() => nativeRoom.calls.leaves)).toBe(0);
   expect(await remote.evaluate(() => !!window.__pbCoopFix)).toBe(false);
 });
+
+test('a deleted answering-side link is restored and exchanges native data', async ({ context, page }) => {
+  await page.addInitScript({ path: path.resolve('pb-coop-fix.user.js') });
+  const remote = await context.newPage();
+  await page.goto('/coop/TEST'); await remote.goto('/coop/TEST');
+  await page.evaluate(async () => { window.nativeRoom = (await import('/native-room.mjs')).createRoom(0); });
+  await remote.evaluate(async () => { window.nativeRoom = (await import('/native-room.mjs')).createRoom(1); });
+  await expect.poll(() => page.evaluate(() => nativeRoom.mesh.state('right'))).toBe('open');
+  await expect.poll(() => page.evaluate(() => __pbCoopFix.stats.room === nativeRoom)).toBe(true);
+  await page.evaluate(() => {
+    nativeRoom.mesh.links.get('right').close(); nativeRoom.mesh.links.delete('right');
+    window.reportBeforeRepair = __pbCoopFix.diagnostics(); __pbCoopFix.repairNow();
+  });
+  expect(await page.evaluate(() => reportBeforeRepair.peers[0].state)).toBe('missing');
+  await expect.poll(() => page.evaluate(() => nativeRoom.mesh.state('right')), { timeout: 12000 }).toBe('open');
+  await remote.evaluate(() => nativeRoom.mesh.links.get('left').ctl.send('missing-link-restored'));
+  await expect.poll(() => page.evaluate(() => nativeRoom.calls.messages)).toContain('missing-link-restored');
+  const report = await page.evaluate(() => __pbCoopFix.diagnostics());
+  expect(report.peers[0].iceState).toMatch(/connected|completed/);
+  expect(report.peers[0].hasRemoteDescription).toBe(true);
+});

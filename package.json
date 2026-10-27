@@ -1,6 +1,6 @@
 {
   "name": "pb-coop-tool",
-  "version": "1.3.0-beta.1",
+  "version": "1.3.0-beta.2",
   "private": true,
   "description": "Experimental PokéBonk co-op diagnostics and bounded connection recovery",
   "license": "MIT",

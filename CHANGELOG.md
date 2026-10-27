@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0-beta.2
+
+- Recover connections missing from the local mesh while the peer is still a room member; leave a 20-second grace period for normal initial offers before automatic recovery.
+- Keep missing peers visible in diagnostics instead of exporting an empty peer list.
+- Add room member count, own slot, expected offer ownership, native RTC/ICE/signalling states, description presence, channel state and candidate-type counts without addresses or SDP.
+- Report unknown relay/RTT values as null until the link opens.
+- Add offline and native-browser missing-link regressions. Real cross-network gameplay remains unverified.
+
 ## 1.3.0-beta.1
 
 - Discover the actual exported game App instead of assuming a global room context.

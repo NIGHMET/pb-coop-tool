@@ -22,3 +22,12 @@ Real two-player PokéBonk sessions across separate Internet networks/NATs, TURN 
 Use two devices and separate networks. Record browser/manager/game versions, one-end versus two-end installation, the selected route, time to recovery, whether game state continues correctly, and whether the match actually remains playable. Compare default settings with the script disabled. Test experimental options separately; do not enable them all and infer a cause from a single successful run.
 
 `npm run check:upstream` and the optional `npm run test:live` are network-dependent checks. CI runs only the offline and local-browser suites. Follow the actual GitHub Actions result when deciding whether the published commit passes remotely.
+
+
+## 1.3.0-beta.2 update
+
+The user's beta.1 exports showed successful script attachment and HTTP responses, but one report had an empty peer list and the other had a connecting peer. They were captured more than two minutes apart and omitted member counts and native handshake states, so these reports do **not** establish a single network root cause.
+
+Code review confirmed a separate recovery gap: beta.1 enumerated only existing mesh links, so a missing link could not be recovered even if the room still listed that peer. Beta.2 enumerates current room members, adds missing-link recovery with a 20-second initial-offer grace period for automatic attempts, and reports native handshake state without exposing addresses or SDP.
+
+Validation: **20 offline checks and 4 native Chromium checks passed locally**, including a deleted answering-side link that was rebuilt and exchanged real data. Four new offline checks failed against beta.1 before implementation. A separate beta.1 simultaneous-two-end probe reopened both local native connections in three consecutive rounds; this does not prove real Internet recovery. The original cross-network/mobile limitations above still apply. The affected user's connection has not yet been retested with beta.2.

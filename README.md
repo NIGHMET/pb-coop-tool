@@ -1,10 +1,10 @@
 # PokéBonk Co-op Connection Doctor
 
-**实验性联机诊断与恢复工具 · 1.3.0-beta.1**
+**实验性联机诊断与恢复工具 · 1.3.0-beta.2**
 
 [English](README.en.md) · [安装脚本](https://raw.githubusercontent.com/NIGHMET/pb-coop-tool/main/pb-coop-fix.user.js) · [适配其他游戏](docs/ADAPTERS.md) · [验证记录](docs/VALIDATION.md)
 
-**已经装了油猴？[下载安装文件](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.0-beta.1/pb-coop-tool-install.user.js)，拖到「油猴 → 管理面板 → 已安装脚本」页面中间，再点「安装」。不用复制代码。[详细步骤](docs/INSTALL.md)**
+**已经装了油猴？[下载安装文件](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.0-beta.2/pb-coop-tool-install.user.js)，拖到「油猴 → 管理面板 → 已安装脚本」页面中间，再点「安装」。不用复制代码。[详细步骤](docs/INSTALL.md)**
 
 用于 [PokéBonk](https://pokebonk.com) 的浏览器合作模式。展示连接状态，在连接失败后有限重试，并导出脱敏诊断。**当前仅适配 PokéBonk；尚未验证真实跨网络双人游戏的恢复效果。**
 
@@ -23,8 +23,8 @@
 
 | 功能 | 默认 | 实际作用与限制 |
 | --- | --- | --- |
-| 自动恢复 | 开 | 对现有 failed/closed 链路按游戏角色重建；每个队友额外自动尝试最多 5 次，脚本操作间隔至少 15 秒；游戏原生重试另外计算；稳定打开 15 秒后重置计数 |
-| 手动恢复 | 按钮 | 对 failed/closed 链路重建；不会重建健康链路；不会恢复已结束的房间或整局进度 |
+| 自动恢复 | 开 | 对 failed/closed 或缺失的链路按游戏角色重建；自动恢复缺失链路前先等待 20 秒；每个队友额外自动尝试最多 5 次，脚本操作间隔至少 15 秒；游戏原生重试另外计算；稳定打开 15 秒后重置计数 |
+| 手动恢复 | 按钮 | 对 failed/closed 或缺失的链路重建；不会重建健康链路；不会恢复已结束的房间或整局进度 |
 | 刷新 TURN | 按钮 | 通过游戏自己的后端获取 ICE 配置，提供给之后新建的连接；不强行中断健康链路 |
 | IPv6 过滤 | 关 | 实验功能，过滤 IPv6 字面量中继地址和发出的完整 SDP 中的 IPv6 候选；可能降低可连通性 |
 | 提高中继发送频率 | 关 | 绕过游戏针对中继的隔帧发送判断；不取消独立的积压保护，可能增加带宽和拥塞 |

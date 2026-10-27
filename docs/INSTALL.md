@@ -1,6 +1,6 @@
 # 拖入油猴安装（已有油猴）
 
-**[点击下载安装文件：pb-coop-tool-install.user.js](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.0-beta.1/pb-coop-tool-install.user.js)**
+**[点击下载安装文件：pb-coop-tool-install.user.js](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.0-beta.2/pb-coop-tool-install.user.js)**
 
 1. 下载上面的文件，保留 `.user.js` 后缀；不用解压、打开或复制代码。
 2. 在平时玩游戏的 Edge / Chrome 中，点击油猴图标 → **管理面板** → **已安装脚本**。

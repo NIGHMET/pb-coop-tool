@@ -111,3 +111,55 @@ test('native retries also stop after the five extra script attempts are exhauste
   assert.equal(api.stats.rebuilds, 5); assert.ok(e.calls.retry > 0);
   e.advance(200000); assert.equal(e.calls.links, count); api.dispose();
 });
+
+test('manual repair restores a missing link while the peer remains a room member', () => {
+  for (const slot of [0, 2]) {
+    const e = environment(); const api = e.load(); e.advance(1200);
+    e.room.mesh.members[0].slot = slot;
+    e.room.mesh.links.get('peer').close(); e.room.mesh.links.delete('peer');
+    api.repairNow();
+    assert.equal(e.room.mesh.links.get('peer')?.offerer, slot === 2);
+    assert.equal(e.calls.signal.filter(([kind]) => kind === 'bye').length, slot === 0 ? 1 : 0);
+    api.dispose();
+  }
+});
+
+test('automatic missing-link recovery waits for a normal offer before requesting reset', () => {
+  const e = environment(); const api = e.load(); e.advance(1200);
+  e.room.mesh.links.get('peer').close(); e.room.mesh.links.delete('peer');
+  e.advance(19000); assert.equal(api.stats.rebuilds, 0);
+  e.advance(3000); assert.equal(api.stats.rebuilds, 1);
+  assert.ok(e.room.mesh.links.has('peer')); api.dispose();
+});
+
+test('repair does not recreate links for peers who left the room', () => {
+  const e = environment(); const api = e.load(); e.advance(1200);
+  e.room.mesh.links.get('peer').close(); e.room.mesh.links.delete('peer');
+  e.room.mesh.members.splice(1); api.repairNow(); e.advance(30000);
+  assert.equal(api.stats.rebuilds, 0); api.dispose();
+});
+
+test('diagnostics retain missing peers and distinguish expected offer ownership from current role', () => {
+  const e = environment(); const api = e.load(); e.advance(1200);
+  e.room.mesh.members[0].slot = 2;
+  e.room.mesh.links.get('peer').close(); e.room.mesh.links.delete('peer');
+  const report = api.diagnostics();
+  assert.equal(report.memberCount, 2); assert.equal(report.selfSlot, 2);
+  assert.equal(report.peers.length, 1); assert.equal(report.peers[0].state, 'missing');
+  assert.equal(report.peers[0].expectedOfferer, true); assert.equal(report.peers[0].offerer, null);
+  assert.equal(report.peers[0].relayed, null); api.dispose();
+});
+
+test('diagnostics expose handshake states and candidate types without exposing SDP or addresses', () => {
+  const e = environment(); const api = e.load(); e.advance(1200);
+  const pc = e.room.mesh.links.get('peer').pc;
+  Object.assign(pc, { connectionState: 'connecting', iceConnectionState: 'checking', iceGatheringState: 'complete', signalingState: 'stable',
+    localDescription: { sdp: 'v=0\r\na=candidate:1 1 udp 1 192.0.2.99 1234 typ host\r\na=candidate:2 1 udp 1 198.51.100.1 1234 typ relay\r\n' },
+    remoteDescription: { sdp: 'PRIVATE_REMOTE_SDP' } });
+  const peer = api.diagnostics().peers[0];
+  assert.equal(peer.iceState, 'checking'); assert.equal(peer.hasRemoteDescription, true);
+  assert.equal(peer.localCandidates.host, 1); assert.equal(peer.localCandidates.relay, 1);
+  const report = JSON.stringify(api.diagnostics());
+  for (const value of ['192.0.2.99', '198.51.100.1', 'PRIVATE_REMOTE_SDP']) assert.equal(report.includes(value), false);
+  api.dispose();
+});

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PokéBonk 联机增强 / Co-op Connection Doctor
 // @namespace    local.pokebonk.coopfix
-// @version      1.3.0-beta.1
+// @version      1.3.0-beta.2
 // @description  实验性联机诊断与恢复：连接状态、有限重试和手动诊断。效果需要实际双人测试。
 // @match        https://pokebonk.com/*
 // @match        https://www.pokebonk.com/*
@@ -432,7 +432,7 @@
   function historyFor(room, id) {
     if (!peerHistories.has(room)) peerHistories.set(room, new Map());
     const peers = peerHistories.get(room);
-    if (!peers.has(id)) peers.set(id, { window: [], rtts: [], relayJitter: 0, repairs: 0, lastRepairAt: -Infinity, bornAt: perf(), openSince: null });
+    if (!peers.has(id)) peers.set(id, { window: [], rtts: [], relayJitter: 0, repairs: 0, lastRepairAt: -Infinity, bornAt: perf(), openSince: null, missingSince: null });
     return peers.get(id);
   }
 
@@ -476,9 +476,19 @@
   /* ---------- 抢修 ---------- */
 
   function autoRepair(room) {
-    for (const [id, link] of room.mesh.links) {
-      if (link.state !== 'failed' && link.state !== 'closed') continue;
+    for (const member of room.others) {
+      const id = member.id;
+      const link = room.mesh.links.get(id);
       const history = historyFor(room, id);
+      if (!link) {
+        // A missing answering-side link is normal while the first offer is
+        // being gathered. Allow the native 20-second connection window first.
+        if (history.missingSince == null) history.missingSince = perf();
+        if (perf() - history.missingSince < 20000) continue;
+      } else {
+        history.missingSince = null;
+        if (link.state !== 'failed' && link.state !== 'closed') continue;
+      }
       if (perf() - history.lastRepairAt < 15000 || history.repairs >= 5) continue;
       forceRebuild(room, id, '自动恢复');
       break;
@@ -492,18 +502,17 @@
   function forceRebuild(room, id, why) {
     const mesh = room.mesh;
     const old = mesh.links.get(id);
-    if (!old) return false;
     const me = mesh.members.find((m) => m.id === mesh.me);
     const other = mesh.members.find((m) => m.id === id);
     if (!me || !other) { ev('warn', '重建跳过：成员表里没有 ' + short(id)); return false; }
 
     const iShouldOffer = me.slot > other.slot;
     const hist = historyFor(room, id);
-    hist.repairs++; hist.lastRepairAt = perf(); hist.openSince = null;
+    hist.repairs++; hist.lastRepairAt = perf(); hist.openSince = null; hist.missingSince = null;
     hist.window = []; hist.rtts = []; hist.relayJitter = 0;
     stats.repairs++;
     mesh.tries.delete(id);
-    try { old.close(); } catch {}
+    try { old?.close(); } catch {}
     try { mesh.links.delete(id); } catch {}
     try {
       const nl = mesh.link(id, iShouldOffer);
@@ -663,7 +672,7 @@
         peers.push({
           name: mbr.name || '?',
           slot: mbr.slot,
-          state: link ? (mesh.state(mbr.id) || link.state) : 'connecting',
+          state: link ? (mesh.state(mbr.id) || link.state) : 'missing',
           rtt: link ? link.rtt : 0,
           idle: link ? link.idle : 0,
           lag: link ? link.lag : 0,
@@ -713,9 +722,9 @@
       const card = h('div', { class: 'peer' });
       const head = h('h4', {}, h('span', {}, p.name), h('span', { class: 'chip' }, 'slot ' + p.slot));
       if (p.state === 'open') head.append(h('span', { class: 'chip' + (p.relay ? ' relay' : '') }, p.relay ? '中继' : '直连'));
-      head.append(h('span', { class: 'chip' }, p.offerer ? '我发起' : '对方发起'));
+      head.append(h('span', { class: 'chip' }, p.state === 'missing' ? '等待建立' : p.offerer ? '我发起' : '对方发起'));
       card.append(head);
-      card.append(row('链路', p.state, p.state === 'open' ? 'ok' : p.state === 'failed' ? 'bad' : 'wr'));
+      card.append(row('链路', p.state === 'missing' ? '待建立（无连接对象）' : p.state, p.state === 'open' ? 'ok' : p.state === 'failed' ? 'bad' : 'wr'));
       if (p.state === 'open') {
         card.append(row('RTT', fmtMs(p.rtt), p.lag > 400 ? 'wr' : 'ok'));
         card.append(row('空闲', p.idle.toFixed(1) + ' 秒 / 9 秒', p.idle > 6 ? 'bad' : p.idle > 3 ? 'wr' : 'ok'));
@@ -785,8 +794,10 @@
 
   function repairNow(room) {
     if (disposed || !room?.alive) return;
-    for (const [id, link] of [...room.mesh.links]) {
-      if (link.state !== 'failed' && link.state !== 'closed') continue;
+    for (const member of room.others) {
+      const id = member.id;
+      const link = room.mesh.links.get(id);
+      if (link && link.state !== 'failed' && link.state !== 'closed') continue;
       historyFor(room, id).repairs = 0;
       forceRebuild(room, id, '手动恢复');
     }
@@ -803,19 +814,41 @@
 
   function diagnostics() {
     const room = stats.room;
+    const selfSlot = room?.mesh.members.find(member => member.id === room.mesh.me)?.slot ?? null;
+    const candidateTypes = (description) => {
+      const counts = { host: 0, srflx: 0, relay: 0, prflx: 0 };
+      for (const line of String(description?.sdp || '').split(/\r?\n/)) {
+        if (!line.startsWith('a=candidate:')) continue;
+        const type = line.match(/\btyp\s+(host|srflx|relay|prflx)\b/)?.[1];
+        if (type) counts[type]++;
+      }
+      return counts;
+    };
     return {
-      version: '1.3.0-beta.1', time: new Date().toISOString(),
+      version: '1.3.0-beta.2', time: new Date().toISOString(),
       adapter: 'pokebonk', discovery: stats.discovery,
+      memberCount: room?.mesh.members.length ?? 0, selfSlot,
       inRun: !!room?.inRun, repairs: stats.repairs, rebuilds: stats.rebuilds,
       connectionsObserved: stats.rtcCount,
       poll: stats.poll ? { ms: stats.poll.ms, status: stats.poll.status } : null,
-      peers: room ? [...room.mesh.links.values()].map((link, index) => ({
-        peer: index + 1, state: link.state, offerer: !!link.offerer,
-        rttMs: Math.round(link.rtt), idleSeconds: link.idle,
-        relayed: !!link.relayed, bufferedBytes: link.backlog,
-        stallSampleRatio: link.__pbHist?.window.length
-          ? link.__pbHist.window.reduce((sum, item) => sum + item, 0) / link.__pbHist.window.length : null,
-      })) : [],
+      peers: room ? room.others.map((member, index) => {
+        const link = room.mesh.links.get(member.id), pc = link?.pc;
+        return {
+          peer: index + 1, slot: member.slot, state: link?.state ?? 'missing',
+          expectedOfferer: selfSlot == null ? null : selfSlot > member.slot,
+          offerer: link ? !!link.offerer : null,
+          rtcState: pc?.connectionState ?? null, iceState: pc?.iceConnectionState ?? null,
+          iceGatheringState: pc?.iceGatheringState ?? null, signalingState: pc?.signalingState ?? null,
+          hasLocalDescription: !!pc?.localDescription, hasRemoteDescription: !!pc?.remoteDescription,
+          localCandidates: candidateTypes(pc?.localDescription), remoteCandidates: candidateTypes(pc?.remoteDescription),
+          controlChannel: link?.ctl?.readyState ?? null, snapshotChannel: link?.snap?.readyState ?? null,
+          rttMs: link?.state === 'open' ? Math.round(link.rtt) : null,
+          idleSeconds: link?.idle ?? null,
+          relayed: link?.state === 'open' ? !!link.relayed : null, bufferedBytes: link?.backlog ?? null,
+          stallSampleRatio: link?.__pbHist?.window.length
+            ? link.__pbHist.window.reduce((sum, item) => sum + item, 0) / link.__pbHist.window.length : null,
+        };
+      }) : [],
     };
   }
   function copyDiag() {

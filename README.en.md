@@ -1,10 +1,10 @@
 # PokéBonk Co-op Connection Doctor
 
-**Experimental diagnostics and bounded recovery · 1.3.0-beta.1**
+**Experimental diagnostics and bounded recovery · 1.3.0-beta.2**
 
 [中文](README.md) · [Install userscript](https://raw.githubusercontent.com/NIGHMET/pb-coop-tool/main/pb-coop-fix.user.js) · [Other games](docs/ADAPTERS.md) · [Validation](docs/VALIDATION.md)
 
-**Already have Tampermonkey? [Download the installation file](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.0-beta.1/pb-coop-tool-install.user.js), drag it onto Tampermonkey Dashboard → Installed Userscripts, then confirm Install. No copying code. Keep the `.user.js` extension.**
+**Already have Tampermonkey? [Download the installation file](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.0-beta.2/pb-coop-tool-install.user.js), drag it onto Tampermonkey Dashboard → Installed Userscripts, then confirm Install. No copying code. Keep the `.user.js` extension.**
 
 A community userscript for [PokéBonk](https://pokebonk.com) browser co-op. It shows connection state, performs bounded recovery of failed connections, and exports privacy-filtered diagnostics. **PokéBonk is the only current adapter. Recovery across real Internet/NAT/mobile networks is not yet validated.** The in-game panel currently uses Chinese.
 
@@ -16,8 +16,8 @@ The adapter reuses the game's already loaded same-origin module, its exported `A
 
 ## Behavior
 
-- Automatic recovery is enabled: rebuild existing failed/closed links, preserve the game's larger-slot-offers rule, wait at least 15 seconds between extra script attempts, and stop after five extra automatic attempts per peer. Native game retries are counted separately. Stable operation for 15 seconds resets the limit.
-- Manual recovery retries failed/closed links without touching healthy connections. An answering peer sends one protocol `bye` to reset that peer link and prompt the larger-slot peer to offer again; this does not leave the room. This cannot resume an ended room or an ended run.
+- Automatic recovery is enabled: rebuild failed/closed or missing links (allowing a 20-second initial-offer grace period for automatic missing-link recovery), preserve the game's larger-slot-offers rule, wait at least 15 seconds between extra script attempts, and stop after five extra automatic attempts per peer. Native game retries are counted separately. Stable operation for 15 seconds resets the limit.
+- Manual recovery retries failed/closed or missing links without touching healthy connections. An answering peer sends one protocol `bye` to reset that peer link and prompt the larger-slot peer to offer again; this does not leave the room. This cannot resume an ended room or an ended run.
 - TURN refresh calls the game's own backend and updates ICE configuration for future links. Healthy links are not interrupted.
 - IPv6 filtering, increased relay send frequency and skipping the `pagehide` leave callback are **experimental and off by default**. These may reduce connectivity, increase congestion, or delay normal room departure. They cannot prevent OS/browser background suspension.
 - The game already accelerates polling with `hurryPoll()`; existing fast retries remain intact.
