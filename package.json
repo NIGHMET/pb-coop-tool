@@ -7,6 +7,7 @@
   "type": "module",
   "engines": { "node": ">=22" },
   "scripts": {
+    "package:installer": "node tools/build-installer.mjs",
     "test": "node --experimental-vm-modules --test tests/regressions.test.mjs",
     "test:browser": "playwright test",
     "test:live": "node tools/smoke-live.mjs",

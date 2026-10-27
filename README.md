@@ -4,6 +4,8 @@
 
 [English](README.en.md) · [安装脚本](https://raw.githubusercontent.com/NIGHMET/pb-coop-tool/main/pb-coop-fix.user.js) · [适配其他游戏](docs/ADAPTERS.md) · [验证记录](docs/VALIDATION.md)
 
+**已经装了油猴？[下载安装文件](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.0-beta.1/pb-coop-tool-install.user.js)，拖到「油猴 → 管理面板 → 已安装脚本」页面中间，再点「安装」。不用复制代码。[详细步骤](docs/INSTALL.md)**
+
 用于 [PokéBonk](https://pokebonk.com) 的浏览器合作模式。展示连接状态，在连接失败后有限重试，并导出脱敏诊断。**当前仅适配 PokéBonk；尚未验证真实跨网络双人游戏的恢复效果。**
 
 这是独立社区工具，与游戏作者无关联。仓库只包含工具和自编测试，不包含游戏代码、素材、账号或服务器凭证。

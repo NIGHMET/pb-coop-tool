@@ -4,6 +4,8 @@
 
 [中文](README.md) · [Install userscript](https://raw.githubusercontent.com/NIGHMET/pb-coop-tool/main/pb-coop-fix.user.js) · [Other games](docs/ADAPTERS.md) · [Validation](docs/VALIDATION.md)
 
+**Already have Tampermonkey? [Download the installation file](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.0-beta.1/pb-coop-tool-install.user.js), drag it onto Tampermonkey Dashboard → Installed Userscripts, then confirm Install. No copying code. Keep the `.user.js` extension.**
+
 A community userscript for [PokéBonk](https://pokebonk.com) browser co-op. It shows connection state, performs bounded recovery of failed connections, and exports privacy-filtered diagnostics. **PokéBonk is the only current adapter. Recovery across real Internet/NAT/mobile networks is not yet validated.** The in-game panel currently uses Chinese.
 
 ## Install
