@@ -1,0 +1,57 @@
+{
+  "checkedAt": "2026-10-28T05:41:34.472Z",
+  "upstreamAsset": "main-BOn5p88k-mvr5gbc0.js",
+  "upstreamSha256": "2bc412f4f393454540abb08a66a77f28827f7fb6ca784b3dadfd58a065f00401",
+  "method": "Actual upstream link/mesh/room classes, two isolated browser contexts, local HTTP polling/signalling with 600ms response delay",
+  "limitation": "Not official server authentication, real game-state continuity, distinct devices or Internet/NAT/TURN validation",
+  "results": [
+    {
+      "scenario": "native-baseline",
+      "result": "PASS",
+      "recoveryMs": 7002,
+      "pageErrors": 0
+    },
+    {
+      "scenario": "answerer-only",
+      "result": "PASS",
+      "recoveryMs": 2851,
+      "pageErrors": 0
+    },
+    {
+      "scenario": "offerer-only",
+      "result": "PASS",
+      "recoveryMs": 1701,
+      "pageErrors": 0
+    },
+    {
+      "scenario": "both-simultaneous",
+      "result": "PASS",
+      "recoveryMs": 1733,
+      "pageErrors": 0
+    },
+    {
+      "scenario": "deleted-answerer",
+      "result": "PASS",
+      "recoveryMs": 1732,
+      "pageErrors": 0
+    },
+    {
+      "scenario": "late-old-answer",
+      "result": "PASS",
+      "recoveryMs": 9167,
+      "pageErrors": 0
+    },
+    {
+      "scenario": "late-old-bye",
+      "result": "PASS",
+      "recoveryMs": 8468,
+      "pageErrors": 0
+    },
+    {
+      "scenario": "old-answer-before-current-answer",
+      "result": "PASS",
+      "recoveryMs": 11514,
+      "pageErrors": 0
+    }
+  ]
+}

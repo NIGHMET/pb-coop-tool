@@ -1,13 +1,17 @@
 # 拖入油猴安装（已有油猴）
 
-**[点击下载安装文件：pb-coop-tool-install.user.js](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.0-beta.2/pb-coop-tool-install.user.js)**
+**[点击下载安装文件：pb-coop-tool-install.user.js](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.0/pb-coop-tool-install.user.js)**
 
 1. 下载上面的文件，保留 `.user.js` 后缀；不用解压、打开或复制代码。
 2. 在平时玩游戏的 Edge / Chrome 中，点击油猴图标 → **管理面板** → **已安装脚本**。
 3. 把下载的 `pb-coop-tool-install.user.js` **拖到管理面板页面中间**。弹出安装页后，确认名称为「PokéBonk 联机增强 / Co-op Connection Doctor」，点击 **安装**。
-4. 回到 [PokéBonk](https://pokebonk.com)，刷新并进入合作房间。右下角面板显示房间及队友状态，才算接入成功。
+4. 回到 [PokéBonk](https://pokebonk.com)，刷新并进入合作房间。右侧面板显示房间及队友状态，才算接入成功。
 
 安装必须保留油猴自己的确认步骤。这个文件就是项目现有用户脚本，不安装额外程序，也不导入其他脚本或油猴设置。
+
+## 更新旧版
+
+安装新文件后，在油猴中确认当前版本为 **1.3.0**，仅启用一个「联机增强」脚本，然后刷新游戏。建议房间里的双方一起更新。首次保持默认设置，只勾选「自动抢修断线」。
 
 ## 拖放没有反应
 
@@ -19,7 +23,7 @@
 
 ## 已验证的范围
 
-2026-10-27：在独立的 Chromium 测试环境中，使用 Chrome 商店发布的 Tampermonkey **5.5.1**，拖入脚本后识别出正确名称和版本；点击安装后，脚本出现在“已安装脚本”列表。这验证了导入安装流程，未修改或验证用户本人浏览器中的安装和权限设置。
+2026-10-27：在独立的 Chromium 测试环境中，使用 Chrome 商店发布的 Tampermonkey **5.5.1**，拖入脚本后识别出正确名称和版本；点击安装后，脚本出现在“已安装脚本”列表。随后对最终 1.3.0 安装包完成了同样的安装，并在官网确认脚本实际接入（discovery=attached）。这未修改或验证用户本人浏览器中的安装和权限设置。
 
 ## 生成安装文件（开发者）
 

@@ -74,3 +74,46 @@ test('a deleted answering-side link is restored and exchanges native data', asyn
   expect(report.peers[0].iceState).toMatch(/connected|completed/);
   expect(report.peers[0].hasRemoteDescription).toBe(true);
 });
+
+test('stale answers are discarded before WebRTC and the current answer restores real data', async ({ context, page }) => {
+  const remote = await context.newPage();
+  for (const p of [page, remote]) { await p.addInitScript({ path: path.resolve('pb-coop-fix.user.js') }); await p.goto('/coop/TEST'); }
+  await page.evaluate(async () => { window.nativeRoom = (await import('/native-room.mjs')).createRoom(0); });
+  await remote.evaluate(async () => { window.nativeRoom = (await import('/native-room.mjs')).createRoom(1); });
+  for (const [p, peer] of [[page, 'right'], [remote, 'left']]) {
+    await expect.poll(() => p.evaluate(peer => nativeRoom.mesh.state(peer) === 'open' && __pbCoopFix.stats.room === nativeRoom, peer)).toBe(true);
+    await p.evaluate(() => { __pbCoopFix.cfg.autoRepair = false; });
+  }
+  await page.evaluate(() => {
+    const original = BroadcastChannel.prototype.postMessage;
+    window.heldAnswers = [];
+    BroadcastChannel.prototype.postMessage = function (message) {
+      if (message.kind === 'answer') heldAnswers.push({ channel: this, message }); else original.call(this, message);
+    };
+    window.releaseAnswer = index => original.call(heldAnswers[index].channel, heldAnswers[index].message);
+    nativeRoom.mesh.links.get('right').state = 'failed'; __pbCoopFix.repairNow();
+  });
+  await expect.poll(() => page.evaluate(() => heldAnswers.length)).toBe(1);
+  await remote.evaluate(() => { nativeRoom.mesh.links.get('left').state = 'failed'; __pbCoopFix.repairNow(); });
+  await expect.poll(() => page.evaluate(() => heldAnswers.length)).toBe(2);
+  await page.evaluate(() => releaseAnswer(0));
+  await expect.poll(() => remote.evaluate(() => __pbCoopFix.stats.staleSignalsDropped)).toBe(1);
+  expect(await remote.evaluate(() => nativeRoom.mesh.links.get('left').pc.remoteDescription)).toBe(null);
+  await page.evaluate(() => releaseAnswer(1));
+  await expect.poll(() => remote.evaluate(() => nativeRoom.mesh.state('left'))).toBe('open');
+  await remote.evaluate(() => nativeRoom.mesh.links.get('left').ctl.send('current-generation-ok'));
+  await expect.poll(() => page.evaluate(() => nativeRoom.calls.messages)).toContain('current-generation-ok');
+});
+
+test('the default panel does not block a lobby action at the bottom right', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.addInitScript({ path: path.resolve('pb-coop-fix.user.js') }); await page.goto('/coop/TEST');
+  await page.evaluate(() => {
+    const button = document.createElement('button'); button.textContent = 'Ready probe';
+    button.style.cssText = 'position:fixed;right:16px;bottom:16px;width:180px;height:48px';
+    button.onclick = () => { window.readyClicked = true; }; document.body.append(button);
+  });
+  await expect(page.locator('.pbf')).toBeVisible();
+  await page.getByRole('button', { name: 'Ready probe', exact: true }).click({ timeout: 1500 });
+  expect(await page.evaluate(() => window.readyClicked)).toBe(true);
+});

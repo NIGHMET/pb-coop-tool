@@ -1,0 +1,65 @@
+{
+  "startedAt": "2026-10-28T05:39:17.783Z",
+  "method": "Official game and official signalling server; two isolated Chromium contexts on one Windows host",
+  "limitation": "One host/network, synthetic transport fault injection; does not prove separate-device/NAT reliability or mobile behavior",
+  "steps": [
+    {
+      "time": "2026-10-28T05:39:40.233Z",
+      "stage": "initial-native-connection",
+      "result": "PASS"
+    },
+    {
+      "time": "2026-10-28T05:39:50.898Z",
+      "stage": "answerer-failure",
+      "result": "PASS",
+      "recoveryMs": 10660
+    },
+    {
+      "time": "2026-10-28T05:39:56.488Z",
+      "stage": "both-failure",
+      "result": "PASS",
+      "recoveryMs": 5583
+    },
+    {
+      "time": "2026-10-28T05:40:01.230Z",
+      "stage": "deleted-answerer",
+      "result": "PASS",
+      "recoveryMs": 4736
+    },
+    {
+      "time": "2026-10-28T05:40:01.613Z",
+      "stage": "room-ui-evidence",
+      "result": "PASS"
+    },
+    {
+      "time": "2026-10-28T05:40:10.185Z",
+      "stage": "start-real-coop-game",
+      "result": "PASS"
+    },
+    {
+      "time": "2026-10-28T05:40:12.738Z",
+      "stage": "native-input-and-game-snapshots",
+      "result": "PASS",
+      "playerMovedDistance": 13.2676528751835,
+      "remoteSnapshotUpdated": true,
+      "remotePositionMoved": true
+    },
+    {
+      "time": "2026-10-28T05:40:14.562Z",
+      "stage": "return-to-lobby",
+      "result": "PASS"
+    },
+    {
+      "time": "2026-10-28T05:40:25.992Z",
+      "stage": "second-coop-game",
+      "result": "PASS",
+      "newPartyConfirmed": true,
+      "playerMovedDistance": 11.680366800605368,
+      "remoteSnapshotUpdated": true,
+      "remotePositionMoved": true
+    }
+  ],
+  "scriptVersion": "1.3.0",
+  "scriptSha256": "1b4db4933f13daa1e2f2f14bcba5d8d4a65c6d5a0bce0badfd09dd91c40cd515",
+  "officialBuild": "mvr5gbc0"
+}

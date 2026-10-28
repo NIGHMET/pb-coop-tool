@@ -10,7 +10,7 @@ export function environment({ moduleURL = null } = {}) {
     setInterval(fn, ms) { const id = ++next; tasks.set(id, { fn, at: now + ms, interval: ms }); return id; },
     clearTimeout(id) { tasks.delete(id); }, clearInterval(id) { tasks.delete(id); },
   };
-  const calls = { signal: [], schedule: [], leave: 0, fetch: [], retry: 0, links: 0, clipboard: '' };
+  const calls = { signal: [], received: [], schedule: [], leave: 0, fetch: [], retry: 0, links: 0, clipboard: '' };
   class PC extends EventTarget {
     constructor(config = {}) { super(); this.config = config; this.connectionState = 'new'; }
     getConfiguration() { return this.config; }
@@ -49,6 +49,11 @@ export function environment({ moduleURL = null } = {}) {
       const link = this.links.get(id); if (!link) return; link.close(); this.links.delete(id);
       const me = members.find(m => m.id === this.me), peer = members.find(m => m.id === id);
       if (me && peer && me.slot > peer.slot) this.link(id, true); else calls.signal.push(['bye', id]);
+    }
+    onSignal(id, kind, data) {
+      calls.received.push({ id, kind, data });
+      if (kind === 'bye') { this.links.get(id)?.close(); this.links.delete(id); }
+      if (kind === 'offer') { this.links.get(id)?.close(); this.link(id, false); }
     }
     state(id) { return this.links.get(id)?.state ?? 'connecting'; }
     idle(id) { return this.links.get(id)?.idle ?? 0; }

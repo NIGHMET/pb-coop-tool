@@ -163,3 +163,58 @@ test('diagnostics expose handshake states and candidate types without exposing S
   for (const value of ['192.0.2.99', '198.51.100.1', 'PRIVATE_REMOTE_SDP']) assert.equal(report.includes(value), false);
   api.dispose();
 });
+
+test('an old tagged answer cannot be applied to a newer local offer', () => {
+  const e = environment(); const api = e.load(); e.advance(1200);
+  const offer = () => {
+    e.room.mesh.link('peer', true); e.room.mesh.ev.signal('peer', 'offer', 'v=0\r\n');
+    const tag = e.calls.signal.at(-1)[2].match(/^a=x-pb-coop-offer:([^\r\n]+)/m)?.[1];
+    assert.ok(tag, 'Offer must carry a negotiation reference'); return tag;
+  };
+  const old = offer(), current = offer(); assert.notEqual(old, current);
+  e.room.mesh.onSignal('peer', 'answer', 'v=0\r\na=x-pb-coop-offer:' + old + '\r\n');
+  assert.equal(e.calls.received.length, 0);
+  e.room.mesh.onSignal('peer', 'answer', 'v=0\r\na=x-pb-coop-offer:' + current + '\r\n');
+  assert.equal(e.calls.received.length, 1); assert.equal(e.calls.received[0].data, 'v=0\r\n'); api.dispose();
+});
+
+test('a reset for an older offer does not delete the newer link', () => {
+  const e = environment(); const api = e.load(); e.advance(1200);
+  e.room.mesh.ev.signal('peer', 'offer', 'v=0\r\n');
+  const old = e.calls.signal.at(-1)[2].match(/^a=x-pb-coop-offer:([^\r\n]+)/m)?.[1];
+  assert.ok(old); e.room.mesh.link('peer', true); e.room.mesh.ev.signal('peer', 'offer', 'v=0\r\n');
+  const current = e.room.mesh.links.get('peer');
+  e.room.mesh.onSignal('peer', 'bye', 'pb-coop-reset:' + old);
+  assert.equal(e.room.mesh.links.get('peer'), current);
+  e.room.mesh.onSignal('peer', 'bye', ''); assert.equal(e.room.mesh.links.has('peer'), false); api.dispose();
+});
+
+test('tagged offers are echoed in answers while untagged legacy answers remain accepted', () => {
+  const e = environment(); const api = e.load(); e.advance(1200);
+  e.room.mesh.onSignal('peer', 'offer', 'v=0\r\na=x-pb-coop-offer:known-offer-1\r\n');
+  e.room.mesh.ev.signal('peer', 'answer', 'v=0\r\n');
+  assert.ok(e.calls.signal.at(-1)[2].includes('a=x-pb-coop-offer:known-offer-1\r\n'));
+  assert.equal(e.calls.received[0].data, 'v=0\r\n');
+  e.room.mesh.onSignal('peer', 'answer', 'v=0\r\n'); assert.equal(e.calls.received.at(-1).kind, 'answer'); api.dispose();
+});
+
+test('signal POST responses do not overwrite the room polling diagnostic', async () => {
+  const e = environment();
+  e.w.fetch = async (url, init) => new Response(init?.method === 'POST' ? null : '{}', { status: init?.method === 'POST' ? 204 : 200 });
+  const api = e.load();
+  await e.w.fetch('https://api.pokebonk.com/coop/rooms/TEST?after=0');
+  const poll = api.stats.poll;
+  await e.w.fetch('https://api.pokebonk.com/coop/rooms/TEST/signal', { method: 'POST' });
+  assert.equal(api.stats.poll, poll); api.dispose();
+});
+
+test('tagged old replies and resets are rejected while a new offer is still gathering', () => {
+  const e = environment(); const api = e.load(); e.advance(1200);
+  e.room.mesh.ev.signal('peer', 'offer', 'v=0\r\n');
+  const old = e.calls.signal.at(-1)[2].match(/^a=x-pb-coop-offer:([^\r\n]+)/m)[1];
+  const fresh = e.room.mesh.link('peer', true); // offer not signalled yet
+  e.room.mesh.onSignal('peer', 'answer', 'v=0\r\na=x-pb-coop-offer:' + old + '\r\n');
+  e.room.mesh.onSignal('peer', 'bye', 'pb-coop-reset:' + old);
+  assert.equal(e.calls.received.length, 0); assert.equal(e.room.mesh.links.get('peer'), fresh);
+  assert.equal(api.stats.staleSignalsDropped, 2); api.dispose();
+});

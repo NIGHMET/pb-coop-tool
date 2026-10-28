@@ -1,6 +1,6 @@
 {
   "name": "pb-coop-tool",
-  "version": "1.3.0-beta.2",
+  "version": "1.3.0",
   "private": true,
   "description": "Experimental PokéBonk co-op diagnostics and bounded connection recovery",
   "license": "MIT",
@@ -11,6 +11,8 @@
     "test": "node --experimental-vm-modules --test tests/regressions.test.mjs",
     "test:browser": "playwright test",
     "test:live": "node tools/smoke-live.mjs",
+    "test:protocol": "node tools/test-official-protocol.mjs",
+    "test:official": "node tools/test-official-game.mjs",
     "check:upstream": "node tools/check-upstream.mjs",
     "check": "node --check pb-coop-fix.user.js && npm test"
   },

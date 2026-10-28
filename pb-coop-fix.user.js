@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PokéBonk 联机增强 / Co-op Connection Doctor
 // @namespace    local.pokebonk.coopfix
-// @version      1.3.0-beta.2
+// @version      1.3.0
 // @description  实验性联机诊断与恢复：连接状态、有限重试和手动诊断。效果需要实际双人测试。
 // @match        https://pokebonk.com/*
 // @match        https://www.pokebonk.com/*
@@ -69,6 +69,7 @@
     rtcCount: 0,
     repairs: 0,
     rebuilds: 0,
+    staleSignalsDropped: 0,
     room: null,
     mesh: null,
   };
@@ -134,7 +135,8 @@
     W.fetch = function fetch(input, init) {
       const url = typeof input === 'string' ? input : (input && input.url) || '';
       const isIce = /\/coop\/ice\b/.test(url);
-      const isRoom = /\/coop\/rooms\/[A-Z0-9]{4}/.test(url);
+      const method = String(init?.method || input?.method || 'GET').toUpperCase();
+      const isRoom = method === 'GET' && /\/coop\/rooms\/[A-Z0-9]{4}(?:[?#]|$)/.test(url);
       const isStatus = /\/status\b/.test(url);
       const t0 = nowMs();
       const p = NativeFetch.apply(this, arguments);
@@ -372,6 +374,24 @@
 
   /* ---------- 房间钩子 ---------- */
 
+  // Opaque negotiation references are carried in an ignorable SDP attribute.
+  // Updated peers remove it before calling WebRTC. Untagged legacy peers remain
+  // accepted, but cannot provide protection against stale signalling.
+  let offerSequence = 0;
+  const offerTagPrefix = 'a=x-pb-coop-offer:';
+  const resetTagPrefix = 'pb-coop-reset:';
+  function readOfferTag(sdp) {
+    const value = String(sdp || '').match(/^a=x-pb-coop-offer:([^\r\n]+)/m)?.[1];
+    return value && /^[a-zA-Z0-9-]{1,100}$/.test(value) ? value : null;
+  }
+  function stripOfferTag(sdp) {
+    return String(sdp).replace(/^a=x-pb-coop-offer:[^\r\n]*(?:\r?\n|$)/gm, '');
+  }
+  function addOfferTag(sdp, tag) {
+    const text = stripOfferTag(sdp);
+    return text + (text.endsWith('\n') ? '' : '\r\n') + offerTagPrefix + tag + '\r\n';
+  }
+
   function hookRoom(room) {
     if (roomHooks.has(room)) return;
     const undo = [];
@@ -397,11 +417,42 @@
     }
     // This game signals complete SDP after ICE gathering; filtering only
     // icecandidate events would not remove IPv6 candidates from the SDP.
+    if (typeof room.mesh.onSignal === 'function') {
+      const original = room.mesh.onSignal;
+      patchMethod(room.mesh, 'onSignal', function (id, kind, data) {
+        const history = historyFor(room, id), link = this.links.get(id);
+        const tag = (kind === 'offer' || kind === 'answer') ? readOfferTag(data) : null;
+        // A tagged answer cannot be valid before this link has sent a tagged
+        // offer. This also closes the ICE-gathering window after replacing a PC.
+        const obsoleteAnswer = kind === 'answer' && tag && tag !== link?.__pbOfferTag;
+        const resetReference = kind === 'bye' && typeof data === 'string' && data.startsWith(resetTagPrefix)
+          ? data.slice(resetTagPrefix.length) : null;
+        const obsoleteReset = resetReference && resetReference !== link?.__pbOfferTag;
+        if (obsoleteAnswer || obsoleteReset) {
+          stats.staleSignalsDropped++;
+          ev('info', '已忽略过期的连接' + (obsoleteAnswer ? '答复' : '重置信号'));
+          return;
+        }
+        if (kind === 'offer') history.remoteOfferTag = tag;
+        if ((kind === 'offer' || kind === 'answer') && typeof data === 'string') data = stripOfferTag(data);
+        return original.call(this, id, kind, data);
+      }, undo);
+    }
     if (typeof room.mesh.ev?.signal === 'function') {
       const original = room.mesh.ev.signal;
       patchMethod(room.mesh.ev, 'signal', function (id, kind, data) {
         if (cfg.dropIPv6 && (kind === 'offer' || kind === 'answer') && typeof data === 'string') {
           data = data.split('\r\n').filter(line => !line.startsWith('a=candidate:') || !String(line.split(/\s+/)[4] || '').includes(':')).join('\r\n');
+        }
+        const history = historyFor(room, id), link = room.mesh.links.get(id);
+        if (kind === 'offer' && typeof data === 'string' && link) {
+          const tag = W.crypto?.randomUUID?.() || Date.now().toString(36) + '-' + (++offerSequence).toString(36);
+          link.__pbOfferTag = tag;
+          data = addOfferTag(data, tag);
+        } else if (kind === 'answer' && typeof data === 'string' && history.remoteOfferTag) {
+          data = addOfferTag(data, history.remoteOfferTag);
+        } else if (kind === 'bye' && history.remoteOfferTag) {
+          data = resetTagPrefix + history.remoteOfferTag;
         }
         return original.call(this, id, kind, data);
       }, undo);
@@ -542,7 +593,7 @@
   /* ================================================================ */
 
   const CSS = `
-.pbf{position:fixed;z-index:2147483646;right:10px;bottom:10px;width:320px;max-width:94vw;
+.pbf{position:fixed;z-index:2147483646;right:10px;top:140px;width:320px;max-width:94vw;
  font:12px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:#e8e8f4;
  background:rgba(18,16,36,.95);border:1px solid rgba(255,255,255,.12);border-radius:14px;
  box-shadow:0 12px 34px rgba(0,0,0,.5);overflow:hidden;user-select:none}
@@ -555,7 +606,7 @@
 .pbf .sp{flex:1}
 .pbf button{font:inherit;color:#e8e8f4;background:rgba(255,255,255,.1);border:0;border-radius:8px;padding:3px 8px;cursor:pointer}
 .pbf button:hover{background:rgba(255,255,255,.2)}
-.pbf .body{padding:2px 10px 10px;max-height:60vh;overflow:auto;user-select:text}
+.pbf .body{padding:2px 10px 10px;max-height:min(60vh,calc(100vh - 240px));overflow:auto;user-select:text}
 .pbf .row{display:flex;gap:6px;align-items:center;padding:1px 0}
 .pbf .k{color:#9d9ab8}
 .pbf .v{margin-left:auto;font-variant-numeric:tabular-nums}
@@ -825,10 +876,11 @@
       return counts;
     };
     return {
-      version: '1.3.0-beta.2', time: new Date().toISOString(),
+      version: '1.3.0', time: new Date().toISOString(),
       adapter: 'pokebonk', discovery: stats.discovery,
       memberCount: room?.mesh.members.length ?? 0, selfSlot,
       inRun: !!room?.inRun, repairs: stats.repairs, rebuilds: stats.rebuilds,
+      staleSignalsDropped: stats.staleSignalsDropped,
       connectionsObserved: stats.rtcCount,
       poll: stats.poll ? { ms: stats.poll.ms, status: stats.poll.status } : null,
       peers: room ? room.others.map((member, index) => {

@@ -31,13 +31,13 @@ export function createRoom(slot) {
     async offer() {
       calls.offers++;
       await this.pc.setLocalDescription(await this.pc.createOffer()); await this.gathered();
-      if (this.state !== 'closed') send(this.id, 'offer', this.pc.localDescription.sdp);
+      if (this.state !== 'closed') mesh.ev.signal(this.id, 'offer', this.pc.localDescription.sdp);
     }
     async signal(kind, data) {
       if (kind === 'offer') {
         await this.pc.setRemoteDescription({ type: 'offer', sdp: data });
         await this.pc.setLocalDescription(await this.pc.createAnswer()); await this.gathered();
-        if (this.state !== 'closed') send(this.id, 'answer', this.pc.localDescription.sdp);
+        if (this.state !== 'closed') mesh.ev.signal(this.id, 'answer', this.pc.localDescription.sdp);
       } else if (this.pc.signalingState === 'have-local-offer') await this.pc.setRemoteDescription({ type: 'answer', sdp: data });
     }
     close() { this.state = 'closed'; clearInterval(this.heartbeat); this.pc.close(); }
@@ -48,6 +48,13 @@ export function createRoom(slot) {
     state(id) { return this.links.get(id)?.state ?? 'connecting'; },
     relayed() { return false; },
     sync() { if (slot > 0 && !this.links.has(other)) this.link(other, true); },
+    onSignal(from, kind, data) {
+      let link = this.links.get(from);
+      if (kind === 'bye') { link?.close(); this.links.delete(from); return; }
+      if (kind === 'offer') { link?.close(); this.links.delete(from); link = null; }
+      if (!link && kind === 'offer') link = this.link(from, false);
+      void link?.signal(kind, data).catch(error => calls.messages.push('ERROR:' + error.message));
+    },
   };
   room = { me, mesh, alive: true, code: 'TEST', members, others: members.filter(m => m.id !== me), inRun: true,
     isHost: slot === 0, retryLink() { throw Error('Fixture intentionally has no remaining native retry budget'); },
@@ -57,13 +64,7 @@ export function createRoom(slot) {
   bus.onmessage = async ({ data }) => {
     if (data.to !== me) return;
     try {
-      let link = mesh.links.get(data.from);
-      if (data.kind === 'bye') { link?.close(); mesh.links.delete(data.from); }
-      else {
-        if (data.kind === 'offer') { link?.close(); mesh.links.delete(data.from); link = null; }
-        if (!link && data.kind === 'offer') link = mesh.link(data.from, false);
-        await link?.signal(data.kind, data.data);
-      }
+      mesh.onSignal(data.from, data.kind, data.data);
       mesh.sync();
     } catch (error) { calls.messages.push('ERROR:' + error.message); }
   };
