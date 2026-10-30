@@ -218,3 +218,73 @@ test('tagged old replies and resets are rejected while a new offer is still gath
   assert.equal(e.calls.received.length, 0); assert.equal(e.room.mesh.links.get('peer'), fresh);
   assert.equal(api.stats.staleSignalsDropped, 2); api.dispose();
 });
+function panelNodes(e) {
+  return e.w.document.body.children.filter(node => !node.removed && (node.className === 'pbf' || node.className === 'pbf-launcher'));
+}
+function setPanelGeometry(e) {
+  const create = e.w.document.createElement;
+  e.w.document.createElement = tag => {
+    const node = create(tag);
+    node.getBoundingClientRect = () => {
+      const left = node.style.left === undefined ? e.w.innerWidth - 332 : Number.parseFloat(node.style.left);
+      const top = node.style.top === undefined ? 140 : Number.parseFloat(node.style.top);
+      return { left, top, width: 322, height: 420, right: left + 322, bottom: top + 420 };
+    };
+    return node;
+  };
+}
+
+test('a previously hidden panel has a visible restore entry and preserves connection settings', () => {
+  const e = environment(); e.w.localStorage.setItem('pbCoopFix.cfg', JSON.stringify({ panel: 'hide', autoRepair: false, dropIPv6: true }));
+  const api = e.load(); e.advance(1200);
+  const launcher = panelNodes(e).find(node => node.className === 'pbf-launcher');
+  assert.ok(launcher, 'Hidden panels need a restore entry even after reinstall/reload');
+  assert.notEqual(launcher.style.display, 'none'); launcher.dispatchEvent(new Event('click'));
+  assert.notEqual(panelNodes(e).find(node => node.className === 'pbf').style.display, 'none');
+  const saved = JSON.parse(e.w.localStorage.getItem('pbCoopFix.cfg'));
+  assert.notEqual(saved.panel, 'hide'); assert.equal(saved.autoRepair, false); assert.equal(saved.dropIPv6, true);
+  api.dispose(); assert.equal(panelNodes(e).length, 0);
+});
+
+test('closing and reloading retains a working panel restore entry', () => {
+  const e = environment(); let api = e.load(); e.advance(1200);
+  panelNodes(e).find(node => node.className === 'pbf').children[0].children.at(-1).dispatchEvent(new Event('click'));
+  assert.equal(api.cfg.panel, 'hide'); api.dispose(); api = e.load(); e.advance(1200);
+  const launcher = panelNodes(e).find(node => node.className === 'pbf-launcher'); assert.ok(launcher);
+  launcher.dispatchEvent(new Event('click')); assert.notEqual(api.cfg.panel, 'hide'); api.dispose();
+});
+
+test('saved offscreen panel positions are moved fully inside the viewport', () => {
+  const e = environment(); setPanelGeometry(e);
+  e.w.localStorage.setItem('pbCoopFix.cfg', JSON.stringify({ panelPos: { left: 1700, top: 1000 } }));
+  const api = e.load(); e.advance(1200); const root = panelNodes(e).find(node => node.className === 'pbf');
+  const rect = root.getBoundingClientRect(); assert.ok(rect.left >= 0 && rect.right <= e.w.innerWidth); assert.ok(rect.top >= 0 && rect.bottom <= e.w.innerHeight);
+  api.dispose();
+});
+
+test('viewport resize reclamps the panel and disposal removes the resize handler', () => {
+  const e = environment(); setPanelGeometry(e);
+  e.w.localStorage.setItem('pbCoopFix.cfg', JSON.stringify({ panelPos: { left: 600, top: 200 } }));
+  const api = e.load(); e.advance(1200); const root = panelNodes(e).find(node => node.className === 'pbf');
+  e.w.innerWidth = 500; e.w.innerHeight = 600; e.w.dispatchEvent(new Event('resize'));
+  const rect = root.getBoundingClientRect(); assert.ok(rect.right <= 500 && rect.bottom <= 600);
+  api.dispose(); const saved = e.w.localStorage.getItem('pbCoopFix.cfg'); e.w.innerWidth = 400; e.w.dispatchEvent(new Event('resize'));
+  assert.equal(e.w.localStorage.getItem('pbCoopFix.cfg'), saved);
+});
+
+test('a hidden-panel launcher stays hidden outside co-op rooms', () => {
+  const e = environment(); delete e.w.ctx; e.w.location.pathname = '/';
+  e.w.localStorage.setItem('pbCoopFix.cfg', JSON.stringify({ panel: 'hide' }));
+  const api = e.load(); e.advance(1200);
+  assert.equal(panelNodes(e).find(node => node.className === 'pbf-launcher').style.display, 'none');
+  api.dispose();
+});
+
+test('invalid saved panel coordinates fall back to a visible default', () => {
+  const e = environment(); setPanelGeometry(e);
+  e.w.localStorage.setItem('pbCoopFix.cfg', JSON.stringify({ panelPos: { left: 'invalid', top: null } }));
+  const api = e.load(); e.advance(1200);
+  const r = panelNodes(e).find(node => node.className === 'pbf').getBoundingClientRect();
+  assert.ok(r.left >= 0 && r.top >= 0 && r.right <= e.w.innerWidth && r.bottom <= e.w.innerHeight);
+  assert.equal(api.cfg.panelPos, null); api.dispose();
+});

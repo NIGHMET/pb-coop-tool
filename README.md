@@ -1,10 +1,10 @@
 # PokéBonk Co-op Connection Doctor
 
-**联机诊断与有限恢复工具 · 1.3.0**
+**联机诊断与有限恢复工具 · 1.3.1**
 
 [English](README.en.md) · [安装脚本](https://raw.githubusercontent.com/NIGHMET/pb-coop-tool/main/pb-coop-fix.user.js) · [适配其他游戏](docs/ADAPTERS.md) · [验证记录](docs/VALIDATION.md)
 
-**已经装了油猴？[下载安装文件](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.0/pb-coop-tool-install.user.js)，拖到「油猴 → 管理面板 → 已安装脚本」页面中间，再点「安装」。不用复制代码。[详细步骤](docs/INSTALL.md)**
+**已经装了油猴？[下载安装文件](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.1/pb-coop-tool-install.user.js)，拖到「油猴 → 管理面板 → 已安装脚本」页面中间，再点「安装」。不用复制代码。[详细步骤](docs/INSTALL.md)**
 
 用于 [PokéBonk](https://pokebonk.com) 的浏览器合作模式。展示连接状态，在连接失败后有限重试，并导出脱敏诊断。**当前仅适配 PokéBonk；尚未验证真实跨网络双人游戏的恢复效果。**
 
@@ -18,6 +18,8 @@
 4. 如果持续显示「等待游戏房间接入」，不要当作已启用；脚本管理器的注入方式、CSP 或游戏更新都可能影响接入。
 
 浏览器/脚本管理器组合的安装兼容性尚未全部测试。自动接入依赖页面已经加载的同源模块导出 `App` 及其 `frameGap()`；不下载另一份游戏，不修改游戏 bundle，不假设存在 `window.ctx`。较晚粘贴到控制台也会尝试接入；完整诊断最好在页面启动前注入。
+
+面板右上角「×」现在会收起为右侧「联机增强」按钮，点击即可恢复。旧版保存的隐藏状态也会显示这个按钮；旧位置超出当前窗口时会自动移回可见范围。
 
 ## 功能与默认值
 

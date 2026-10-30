@@ -1,3 +1,17 @@
+# 1.3.1 panel restoration patch — 2026-10-31
+
+This UI-only patch addresses two confirmed source defects: the old close button persisted `panel=hide` with no restore entry, and saved coordinates were reused without checking a smaller viewport.
+
+- In co-op rooms, a hidden panel now leaves a labelled restore button. Old hidden settings and the legacy boolean setting are supported. Restoring preserves connection feature switches.
+- Saved positions are checked against the actual rendered panel size, and viewport resize reclamps them. Invalid coordinates fall back to the default position.
+- Disposal removes both UI nodes and the resize handler.
+- **31 offline regression checks passed**, including six panel cases. Four initial regression checks failed against 1.3.0 before this fix. An independent code review also ran all 31 checks successfully.
+- The browser suite now has eight checks: the previous six plus legacy-hide/close/reload restoration and actual DOM position/resize checks. These run in repository CI against a local fixture; use the commit's Actions result for execution evidence.
+
+This patch does not change negotiation, retry budgets or game transport. The 1.3.0 official-game results below are historical; no new official-game session, user-browser inspection or cross-network reliability claim is part of this patch.
+
+---
+
 # 1.3.0 validation — 2026-10-28
 
 Runtime: Windows, Node.js 22.23.3, Playwright 1.64.1, Chromium 156. The release is a bounded recovery tool; its version number is not a claim of universal network stability.

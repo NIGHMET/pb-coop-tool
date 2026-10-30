@@ -117,3 +117,28 @@ test('the default panel does not block a lobby action at the bottom right', asyn
   await page.getByRole('button', { name: 'Ready probe', exact: true }).click({ timeout: 1500 });
   expect(await page.evaluate(() => window.readyClicked)).toBe(true);
 });
+
+test('a legacy hidden panel can be restored after reload without changing network settings', async ({ page }) => {
+  await page.goto('/coop/TEST');
+  await page.evaluate(() => localStorage.setItem('pbCoopFix.cfg', JSON.stringify({ panel: 'hide', autoRepair: false, dropIPv6: true })));
+  await page.addInitScript({ path: path.resolve('pb-coop-fix.user.js') }); await page.reload();
+  const restore = page.getByRole('button', { name: '显示联机增强面板', exact: true });
+  await expect(restore).toBeVisible(); await expect(page.locator('.pbf')).toBeHidden();
+  await restore.click(); await expect(page.locator('.pbf')).toBeVisible(); await expect(restore).toBeHidden();
+  expect(await page.evaluate(() => ({ autoRepair: __pbCoopFix.cfg.autoRepair, dropIPv6: __pbCoopFix.cfg.dropIPv6 }))).toEqual({ autoRepair: false, dropIPv6: true });
+  await page.getByTitle('收起到联机增强按钮').click(); await page.reload(); await expect(restore).toBeVisible();
+  await restore.click(); await expect(page.locator('.pbf')).toBeVisible();
+  await page.evaluate(() => __pbCoopFix.dispose()); await expect(page.locator('.pbf, .pbf-launcher')).toHaveCount(0);
+});
+
+test('a stored offscreen panel and a later viewport shrink remain fully visible', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 }); await page.goto('/coop/TEST');
+  await page.evaluate(() => localStorage.setItem('pbCoopFix.cfg', JSON.stringify({ panelPos: { left: 2100, top: 1300 } })));
+  await page.addInitScript({ path: path.resolve('pb-coop-fix.user.js') }); await page.reload();
+  await expect(page.locator('.pbf')).toBeVisible();
+  const fits = () => page.locator('.pbf').evaluate(node => {
+    const r = node.getBoundingClientRect(); return r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight;
+  });
+  await expect.poll(fits).toBe(true);
+  await page.setViewportSize({ width: 760, height: 560 }); await expect.poll(fits).toBe(true);
+});

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PokéBonk 联机增强 / Co-op Connection Doctor
 // @namespace    local.pokebonk.coopfix
-// @version      1.3.0
+// @version      1.3.1
 // @description  实验性联机诊断与恢复：连接状态、有限重试和手动诊断。效果需要实际双人测试。
 // @match        https://pokebonk.com/*
 // @match        https://www.pokebonk.com/*
@@ -622,6 +622,9 @@
 .pbf .log{max-height:104px;overflow:auto;background:rgba(0,0,0,.28);border-radius:8px;padding:5px 7px;
  font:11px/1.5 ui-monospace,Consolas,monospace;color:#b9b6d0;white-space:pre-wrap;word-break:break-all}
 .pbf .hint{color:#8d8aa6;font-size:11px;margin:5px 0 0}
+.pbf-launcher{position:fixed;z-index:2147483646;right:10px;top:140px;max-width:94vw;
+ font:12px/1.45 system-ui,sans-serif;color:#e8e8f4;background:rgba(18,16,36,.95);
+ border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:8px 12px;cursor:pointer}
 `;
 
   let ui = null;
@@ -650,16 +653,18 @@
     const dot = h('span', { class: 'dot' });
     const label = h('b', {}, '联机增强');
     const minBtn = h('button', { on: { click: toggle } }, '—');
-    const closeBtn = h('button', { on: { click: () => { cfg.panel = 'hide'; saveCfg(); ui.root.style.display = 'none'; } } }, '×');
+    const closeBtn = h('button', { title: '收起到联机增强按钮', on: { click: () => { cfg.panel = 'hide'; saveCfg(); render(); } } }, '×');
     const header = h('header', {}, dot, label, h('span', { class: 'sp' }), minBtn, closeBtn);
     const body = h('div', { class: 'body' });
     const foldEl = h('div', { style: 'display:none', class: 'fold', on: { click: toggle } }, '联机增强 —');
     const root = h('div', { class: 'pbf' }, header, body, foldEl);
 
-    if (cfg.panelPos) {
+    if (cfg.panelPos && Number.isFinite(cfg.panelPos.left) && Number.isFinite(cfg.panelPos.top)) {
       root.style.left = cfg.panelPos.left + 'px';
       root.style.top = cfg.panelPos.top + 'px';
       root.style.right = 'auto'; root.style.bottom = 'auto';
+    } else if (cfg.panelPos) {
+      cfg.panelPos = null; saveCfg();
     }
 
     let folded = false;
@@ -692,8 +697,30 @@
       saveCfg();
     });
 
-    document.body.append(root);
-    ui = { root, body, dot, label };
+    const launcher = h('button', { class: 'pbf-launcher', type: 'button',
+      'aria-label': '显示联机增强面板', style: 'display:none', on: { click: showPanel } }, '联机增强');
+    document.body.append(root, launcher);
+    ui = { root, body, dot, label, launcher };
+  }
+
+  function showPanel() {
+    cfg.panel = 'auto'; cfg.panelPos = null;
+    if (ui) {
+      for (const key of ['left', 'top', 'right', 'bottom']) ui.root.style[key] = '';
+    }
+    saveCfg(); render();
+  }
+
+  function keepPanelInViewport() {
+    if (!ui || ui.root.style.display === 'none') return;
+    const r = ui.root.getBoundingClientRect();
+    if (!Number.isFinite(r.width) || !Number.isFinite(r.height) || r.width <= 0 || r.height <= 0) return;
+    const left = Math.max(0, Math.min(W.innerWidth - r.width, r.left));
+    const top = Math.max(0, Math.min(W.innerHeight - r.height, r.top));
+    if (left === r.left && top === r.top) return;
+    ui.root.style.left = left + 'px'; ui.root.style.top = top + 'px';
+    ui.root.style.right = 'auto'; ui.root.style.bottom = 'auto';
+    cfg.panelPos = { left, top }; saveCfg();
   }
 
   const fmtMs = (ms) => (!Number.isFinite(ms) || ms <= 0 ? '—'
@@ -704,11 +731,21 @@
   }
 
   function render() {
-    if (cfg.panel === 'hide') return;
+    renderPanel();
+    keepPanelInViewport();
+  }
+
+  function renderPanel() {
     mount();
     if (!ui) return;
 
     const onCoop = /\/coop\//.test(W.location.pathname) || /[?&]sala=/.test(W.location.search);
+    if (cfg.panel === 'hide') {
+      ui.root.style.display = 'none';
+      ui.launcher.style.display = onCoop || stats.room ? '' : 'none';
+      return;
+    }
+    ui.launcher.style.display = 'none';
     if (cfg.panel === 'auto' && !onCoop && !stats.room) { ui.root.style.display = 'none'; return; }
     ui.root.style.display = '';
 
@@ -876,7 +913,7 @@
       return counts;
     };
     return {
-      version: '1.3.0', time: new Date().toISOString(),
+      version: '1.3.1', time: new Date().toISOString(),
       adapter: 'pokebonk', discovery: stats.discovery,
       memberCount: room?.mesh.members.length ?? 0, selfSlot,
       inRun: !!room?.inRun, repairs: stats.repairs, rebuilds: stats.rebuilds,
@@ -917,6 +954,9 @@
   /* ================================================================ */
 
   mainTimer = timers.setInterval(tick, 1000);
+  const onPanelResize = () => { if (!disposed) render(); };
+  W.addEventListener('resize', onPanelResize);
+  cleanups.push(() => W.removeEventListener('resize', onPanelResize));
   const startupTimer = timers.setTimeout(tick, 500);
   cleanups.push(() => timers.clearTimeout(startupTimer));
   if (document.readyState === 'loading') {
@@ -930,6 +970,7 @@
     stats,
     events,
     save: saveCfg,
+    showPanel,
     repairNow: () => { if (stats.room) repairNow(stats.room); },
     refreshIce,
     diagnostics,
@@ -948,7 +989,7 @@
       if (styleElement) styleElement.remove();
       stats.room = stats.mesh = stats.app = null;
       pinnedRoom = null;
-      if (ui) { ui.root.remove(); ui = null; }
+      if (ui) { ui.root.remove(); ui.launcher.remove(); ui = null; }
       if (W.fetch === patchedFetch) W.fetch = NativeFetch;
       if (W.RTCPeerConnection === patchedPC) W.RTCPeerConnection = NativePC;
       delete W.__pbCoopFix;

@@ -1,10 +1,10 @@
 # PokéBonk Co-op Connection Doctor
 
-**Diagnostics and bounded recovery · 1.3.0**
+**Diagnostics and bounded recovery · 1.3.1**
 
 [中文](README.md) · [Install userscript](https://raw.githubusercontent.com/NIGHMET/pb-coop-tool/main/pb-coop-fix.user.js) · [Other games](docs/ADAPTERS.md) · [Validation](docs/VALIDATION.md)
 
-**Already have Tampermonkey? [Download the installation file](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.0/pb-coop-tool-install.user.js), drag it onto Tampermonkey Dashboard → Installed Userscripts, then confirm Install. No copying code. Keep the `.user.js` extension.**
+**Already have Tampermonkey? [Download the installation file](https://github.com/NIGHMET/pb-coop-tool/releases/download/v1.3.1/pb-coop-tool-install.user.js), drag it onto Tampermonkey Dashboard → Installed Userscripts, then confirm Install. No copying code. Keep the `.user.js` extension.**
 
 A community userscript for [PokéBonk](https://pokebonk.com) browser co-op. It shows connection state, performs bounded recovery of failed connections, and exports privacy-filtered diagnostics. **PokéBonk is the only current adapter. Recovery across real Internet/NAT/mobile networks is not yet validated.** The in-game panel currently uses Chinese.
 
@@ -13,6 +13,8 @@ A community userscript for [PokéBonk](https://pokebonk.com) browser co-op. It s
 Use a userscript manager capable of running in the page context, such as Tampermonkey or Violentmonkey. Open the install link, or paste the full `pb-coop-fix.user.js` into a new script. Refresh the game and join co-op. Keep the default settings for the first trial. Injection compatibility across managers/browsers is not fully tested.
 
 The adapter reuses the game's already loaded same-origin module, its exported `App` class and `frameGap()` method to discover the running instance. If the panel keeps waiting for a room, do not assume recovery is active: injection isolation, CSP or an upstream change may prevent attachment.
+
+Closing the panel now leaves a restore button in co-op rooms, including previously saved hidden states. Saved positions are clamped to the current viewport and rechecked on resize.
 
 ## Behavior
 
